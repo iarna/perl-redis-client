@@ -264,7 +264,7 @@ sub _read_multi_bulk_reply {
 
     local $/ = $CRLF;
 
-    my $parts = readline $sock;
+    my $parts = $sock->getline;
     chomp $parts;
 
     return if $parts == 0;      # null response
@@ -284,7 +284,7 @@ sub _read_bulk_reply {
 
     local $/ = $CRLF;
 
-    my $length = readline $sock;
+    my $length = $sock->getline;
     chomp $length;
 
     return if $length == -1;    # null response
@@ -293,7 +293,7 @@ sub _read_bulk_reply {
     $sock->read( $buf, $length );
 
     # throw out the terminating CRLF
-    readline $sock;
+    $sock->getline;
 
     return $buf;
 }
@@ -304,7 +304,7 @@ sub _read_single_line {
 
     local $/ = $CRLF;
 
-    my $val = readline $sock;
+    my $val = $sock->getline;
     chomp $val;
 
     return $val;
