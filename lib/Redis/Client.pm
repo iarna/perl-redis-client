@@ -10,7 +10,7 @@ use namespace::sweep 0.003;
 
 has 'host'         => ( is => 'ro', isa => 'Str', default => 'localhost' );
 has 'port'         => ( is => 'ro', isa => 'Int', default => 6379 );
-has '_sock'        => ( is => 'ro', isa => 'IO::Socket', init_arg => undef, lazy_build => 1, 
+has '_sock'        => ( is => 'ro',  init_arg => undef, lazy_build => 1, 
                         predicate => '_have_sock', clearer => '_clear_sock' );
 
 BEGIN { 
@@ -187,15 +187,50 @@ after quit => sub {
     $self->_clear_sock;
 };
 
+sub _coro_socket {
+    my $self = shift;
+
+    require Coro::Handle;
+    require AnyEvent::Socket;
+
+    AnyEvent::Socket::tcp_connect( $self->host, $self->port, Coro::rouse_cb() );
+    my $raw_fh = (Coro::rouse_wait())[0];
+
+    return unless defined $raw_fh;
+
+    return Coro::Handle::unblock( $raw_fh );
+}
+
+sub _ioinet_socket {
+    my $self = shift;
+    
+    return IO::Socket::INET->new( 
+            PeerAddr    => $self->host,
+            PeerPort    => $self->port,
+            Proto       => 'tcp',
+        );
+}
+
+sub _select_socket_type {
+    if ( *Coro::rouse_cb{'CODE'} ) {
+        return '_coro_socket';
+    }
+    else {
+        return '_ioinet_socket';
+    }
+}
 
 sub _build__sock { 
     my $self = shift;
 
-    my $sock = IO::Socket::INET->new( 
-        PeerAddr    => $self->host,
-        PeerPort    => $self->port,
-        Proto       => 'tcp',
-    ) or die sprintf q{Can't connect to Redis host at %s:%s: %s}, $self->host, $self->port, $@;
+    my $socket_method = $self->_select_socket_type;
+
+    local $@;
+    my $sock = eval { $self->$socket_method() };
+    
+    unless ($sock) {
+        die sprintf q{Can't connect to Redis host at %s:%s: %s}, $self->host, $self->port, defined $@ ? $@ : $!;
+    }
 
     return $sock;
 }
