@@ -3,17 +3,18 @@ package RedisClientTest;
 use strict;
 use warnings;
 
-use Redis::Client;
-
 sub server { 
-    my $host = $ENV{PERL_REDIS_TEST_SERVER}   || 'localhost';
-    my $port = $ENV{PERL_REDIS_TEST_PORT}     || '6379';
-    my $pw   = $ENV{PERL_REDIS_TEST_PASSWORD} || undef;
+    my $host  = $ENV{PERL_REDIS_TEST_SERVER}   || 'localhost';
+    my $port  = $ENV{PERL_REDIS_TEST_PORT}     || '6379';
+    my $pw    = $ENV{PERL_REDIS_TEST_PASSWORD} || undef;
+    my $class = $ENV{PERL_REDIS_TEST_CLASS}    || 'Redis::Client';
+    
+    eval qq{use $class};
 
     my $client = eval { 
-        Redis::Client->new( host => $host,
-                            port => $port,
-                            $pw ? ( password => $pw ) : ( ) );
+        $class->new( host => $host,
+                     port => $port,
+                     $pw ? ( password => $pw ) : ( ) );
     };
 
     return if $@;
